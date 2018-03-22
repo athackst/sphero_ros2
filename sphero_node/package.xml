@@ -1,16 +1,24 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>sphero_driver</name>
+  <name>sphero_node</name>
   <version>0.0.0</version>
-  <description>Sphero drivers in ROS2 using rclpy.</description>
+  <description>
+    sphero_node provides a ROS2 wrapper for the sphero driver.
+  </description>
   <maintainer email="allison@lyonthackston.com">Allison Thackston</maintainer>
-  <license>Apache License 2.0</license>
+  <license>BSD</license>
+  
+  <buildtool_depend>ament_catkin</buildtool_depend>
 
-  <buildtool_depend>ament_cmake</buildtool_depend>
-
-  <exec_depend>bluez</exec_depend>
-  <exec_depend>python-bluez</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>python_orocos_kdl</exec_depend>
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>sphero_driver</exec_depend>
+  <exec_depend>sphero_msgs</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
 
   <!-- These test dependencies are optional
   Their purpose is to make sure that the code passes the linters -->
@@ -21,4 +29,5 @@
   <export>
     <build_type>ament_python</build_type>
   </export>
+
 </package>
