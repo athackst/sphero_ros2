@@ -213,9 +213,7 @@ class BTInterface(object):
     return True
 
   def send(self, data):
-    print ("bt.send start")
     self.sock.send(data)
-    print ("bt.send end")
 
   def recv(self, num_bytes):
     return self.sock.recv(num_bytes)
@@ -258,7 +256,7 @@ class Sphero(threading.Thread):
     return req + [self.seq] + [len(cmd)+1] + cmd
 
   def data2hexstr(self, data):
-    return ''.join('{:02X}'.format(d) for d in data)
+    return ' '.join([ '{:02x}'.format(ord(d)) for d in data])
 
   def create_mask_list(self, mask1, mask2):
     #save the mask
@@ -506,9 +504,7 @@ class Sphero(threading.Thread):
     will move in other funcation calls).
     :param response: request response back from Sphero.
     """
-    print("set_rotation_rate")
     self.send(self.pack_cmd(REQ['CMD_SET_ROTATION_RATE'],[self.clamp(rate, 0, 255)]), response)
-    print("end set_rotation_rate")
 
   def set_app_config_blk(self, app_data, response):
     """
@@ -743,7 +739,6 @@ class Sphero(threading.Thread):
       DID through the end of the data payload, bit inverted (1's\
       complement).
     """
-    print("send")
     #compute the checksum
     #modulo 256 sum of data bit inverted
     checksum =~ sum(data) % 256
@@ -755,18 +750,12 @@ class Sphero(threading.Thread):
     #pack the msg
     msg = str(struct.pack('B',x) for x in output)
     #send the msg
-    print ("begin lock")
     with self._communication_lock:
-      print("in lock")
       self.bt.send(msg)
-      print("after")
-    print("end send")
 
   def run(self):
     # this is larger than any single packet
-    # self.recv(1024)
-    while self.is_connected and not self.shutdown:
-      time.sleep(1)
+    self.recv(1024)
 
   def recv(self, num_bytes):
     '''
@@ -814,14 +803,9 @@ class Sphero(threading.Thread):
     '''
 
     while self.is_connected and not self.shutdown:
-      print ("begin recv lock")
       with self._communication_lock:
-        print ("reading bt: {}".format(num_bytes))
         self.raw_data_buf += self.bt.recv(num_bytes)
-        print ("raw data received")
-      print ("end recv lock")
       data = self.raw_data_buf
-      print("data: {}".format(self.data2hexstr(data_packet)))
       while len(data)>5:
         if data[:2] == RECV['SYNC']:
           print("got response packet")
@@ -836,7 +820,6 @@ class Sphero(threading.Thread):
             
          
         elif data[:2] == RECV['ASYNC']:
-          print("got async packet")
           data_length = (ord(data[3])<<8)+ord(data[4])
           if data_length+5 <= len(data):
             data_packet = data[:(5+data_length)]

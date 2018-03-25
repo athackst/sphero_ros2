@@ -4,6 +4,7 @@
   <name>sphero_driver</name>
   <version>0.0.0</version>
   <description>Sphero drivers in ROS2 using rclpy.</description>
+
   <maintainer email="allison@lyonthackston.com">Allison Thackston</maintainer>
   <license>Apache License 2.0</license>
 
