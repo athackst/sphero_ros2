@@ -115,7 +115,8 @@ REQ = dict(
   CMD_INIT_MACRO_EXECUTIVE = [0x02, 0x54],
   CMD_ABORT_MACRO = [0x02, 0x55],
   CMD_GET_MACRO_STATUS = [0x02, 0x56],
-  CMD_SET_MACRO_STATUS = [0x02, 0x57])
+  CMD_SET_MACRO_STATUS = [0x02, 0x57],
+  CMD_CONFIG_LOCATOR = [0x02, 0x13])
 
 STRM_MASK1 = dict(
   GYRO_H_FILTERED    = 0x00000001,
@@ -203,8 +204,7 @@ class BTInterface(object):
       self.sock=bluetooth.BluetoothSocket(bluetooth.RFCOMM)
       self.sock.connect((self.target_address,self.port))
     except bluetooth.btcommon.BluetoothError as error:
-      #sys.stdout.write(error.strerror)
-      print("{}".format(error))
+      sys.stdout.write("{}".format(error.strerror))
       sys.stdout.flush()
       time.sleep(5.0)
       sys.exit(1)
@@ -808,15 +808,16 @@ class Sphero(threading.Thread):
       data = self.raw_data_buf
       while len(data)>5:
         if data[:2] == RECV['SYNC']:
-          #print "got response packet"
+          print("got response packet")
           # response packet
           data_length = ord(data[4])
           if data_length+5 <= len(data):
             data_packet = data[:(5+data_length)]
             data = data[(5+data_length):]
           else:
+            print("Response packet: {}".format(self.data2hexstr(data_packet)))
             break
-            #print "Response packet", self.data2hexstr(data_packet)
+            
          
         elif data[:2] == RECV['ASYNC']:
           data_length = (ord(data[3])<<8)+ord(data[4])
@@ -835,7 +836,7 @@ class Sphero(threading.Thread):
           else:
             print("got a packet that isn't streaming: {}".format(self.data2hexstr(data)))
         else:
-          raise RuntimeError("Bad SOF : " + self.data2hexstr(data))
+          raise RuntimeError("Bad SOF : {}".format(self.data2hexstr(data)))
       self.raw_data_buf=data
 
   def parse_pwr_notify(self, data, data_length):
