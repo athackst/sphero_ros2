@@ -256,7 +256,7 @@ class Sphero(threading.Thread):
     return req + [self.seq] + [len(cmd)+1] + cmd
 
   def data2hexstr(self, data):
-    return ' '.join([ ("%02x"%ord(d)) for d in data])
+    return ' '.join([ '{:02x}'.format(ord(d)) for d in data])
 
   def create_mask_list(self, mask1, mask2):
     #save the mask
