@@ -16,8 +16,8 @@ sphero.set_rgb_led(0,255,0,0,False)
 time.sleep(1)
 sphero.set_rgb_led(0,0,255,0,False)
 time.sleep(3)
-sphero.join()
 sphero.disconnect()
+sphero.join()
 sys.exit(1)
 
 

@@ -59,17 +59,17 @@ MRSP = dict(
 
 #ID codes for asynchronous packets
 IDCODE = dict(
-  PWR_NOTIFY = chr(0x01),               #Power notifications
-  LEVEL1_DIAG = chr(0x02),              #Level 1 Diagnostic response
-  DATA_STRM = chr(0x03),                #Sensor data streaming
-  CONFIG_BLOCK = chr(0x04),             #Config block contents
-  SLEEP = chr(0x05),                    #Pre-sleep warning (10 sec)
-  MACRO_MARKERS =chr(0x06),             #Macro markers
-  COLLISION = chr(0x07))                #Collision detected
+  PWR_NOTIFY = 0x01,               #Power notifications
+  LEVEL1_DIAG = 0x02,              #Level 1 Diagnostic response
+  DATA_STRM = 0x03,                #Sensor data streaming
+  CONFIG_BLOCK = 0x04,             #Config block contents
+  SLEEP = 0x05,                    #Pre-sleep warning (10 sec)
+  MACRO_MARKERS =0x06,             #Macro markers
+  COLLISION = 0x07)                #Collision detected
 
 RECV = dict(
-  ASYNC = [chr(0xff), chr(0xfe)],
-  SYNC = [chr(0xff), chr(0xff)])
+  ASYNC = [0xff, 0xfe],
+  SYNC = [0xff, 0xff])
 
 
 REQ = dict(
@@ -84,6 +84,7 @@ REQ = dict(
   CMD_GET_PWR_STATE = [0x00, 0x20],
   CMD_SET_PWR_NOTIFY = [0x00, 0x21],
   CMD_SLEEP = [0x00, 0x22],
+  CMD_SET_INACTIVE_TIMER = [0x00, 0x25],
   CMD_GOTO_BL = [0x00, 0x30],
   CMD_RUN_L1_DIAGS = [0x00, 0x40],
   CMD_RUN_L2_DIAGS = [0x00, 0x41],
@@ -172,15 +173,12 @@ class BTInterface(object):
 
   def connect(self):
     if self.target_address is None:
-        sys.stdout.write("Searching for devices....")
-        sys.stdout.flush()
-
         for i in range(10):
-          sys.stdout.write("....")
-          sys.stdout.flush()
+          print("Searching for devices....")
           nearby_devices = bluetooth.discover_devices(lookup_names = True)
 
           if len(nearby_devices)>0:
+            print("...found {}".format(nearby_devices))
             for bdaddr, name in nearby_devices:
               #look for a device name that starts with Sphero
               if name.startswith(self.target_name):
@@ -191,25 +189,20 @@ class BTInterface(object):
             break
 
         if self.target_address is not None:
-          sys.stdout.write("\nFound Sphero device with address: %s\n" %  (self.target_address))
-          sys.stdout.flush()
+          print("Found Sphero device with address: %s" %  (self.target_address))
         else:
-          sys.stdout.write("\nNo Sphero devices found.\n" )
-          sys.stdout.flush()
+          print("No Sphero devices found." )
           sys.exit(1)
     else:
-        sys.stdout.write("Connecting to device: " + self.target_address + "...")
-
+        print("Connecting to device: " + self.target_address + "...")
     try:
       self.sock=bluetooth.BluetoothSocket(bluetooth.RFCOMM)
       self.sock.connect((self.target_address,self.port))
     except bluetooth.btcommon.BluetoothError as error:
-      sys.stdout.write("{}".format(error.strerror))
-      sys.stdout.flush()
+      print("Error!: {}".format(error))
       time.sleep(5.0)
       sys.exit(1)
-    sys.stdout.write("Paired with Sphero.\n")
-    sys.stdout.flush()
+    print("Paired with Sphero.")
     return True
 
   def send(self, data):
@@ -252,11 +245,10 @@ class Sphero(threading.Thread):
 
   def pack_cmd(self, req ,cmd):
     self.inc_seq()
- #   print req + [self.seq] + [len(cmd)+1] + cmd
     return req + [self.seq] + [len(cmd)+1] + cmd
 
   def data2hexstr(self, data):
-    return ' '.join([ '{:02x}'.format(ord(d)) for d in data])
+    return ' '.join(hex(d) for d in data)
 
   def create_mask_list(self, mask1, mask2):
     #save the mask
@@ -553,7 +545,7 @@ class Sphero(threading.Thread):
     self.create_mask_list(sample_mask1, sample_mask2)
     self.stream_mask1 = sample_mask1
     self.stream_mask2 = sample_mask2
-    #print data
+    print(data)
     self.send(data, response)
 
   def set_filtered_data_strm(self, sample_div, sample_frames, pcnt, response):
@@ -585,6 +577,7 @@ class Sphero(threading.Thread):
     :param pcnt: packet count (set to 0 for unlimited streaming).
     :param response: request response back from Sphero.
     """
+    print("set_raw_data_strm start")
     mask1 = 0
     mask2 = 0
     for key,value in STRM_MASK1.items():
@@ -593,6 +586,7 @@ class Sphero(threading.Thread):
     for value in STRM_MASK2.values():
         mask2 = mask2|value
     self.set_data_strm(sample_div, sample_frames, mask1, pcnt, mask2, response)
+    print("set_raw_data_strm end")
 
 
   def set_all_data_strm(self, sample_div, sample_frames, pcnt, response):
@@ -649,6 +643,7 @@ class Sphero(threading.Thread):
     :param blue: blue color value.
     :param save: 01h for save (color is saved as "user LED color").
     """
+    print("set_rgb_led")
     self.send(self.pack_cmd(REQ['CMD_SET_RGB_LED'],[self.clamp(red,0,255), self.clamp(green,0,255), self.clamp(blue,0,255), save]), response)
 
   def set_back_led(self, brightness, response):
@@ -748,7 +743,8 @@ class Sphero(threading.Thread):
     else:
       output = REQ['WITHOUT_RESPONSE'] + data + [checksum]
     #pack the msg
-    msg = str(struct.pack('B',x) for x in output)
+    msg = bytes(bytearray(output))
+    # msg = output
     #send the msg
     with self._communication_lock:
       self.bt.send(msg)
@@ -803,40 +799,42 @@ class Sphero(threading.Thread):
     '''
 
     while self.is_connected and not self.shutdown:
+      print("connected..")
       with self._communication_lock:
         self.raw_data_buf += self.bt.recv(num_bytes)
       data = self.raw_data_buf
       while len(data)>5:
+        print("got response packet:{}".format(data))
         if data[:2] == RECV['SYNC']:
-          print("got response packet")
+          print("sync packet")
           # response packet
-          data_length = ord(data[4])
+          data_length = data[4]
           if data_length+5 <= len(data):
             data_packet = data[:(5+data_length)]
             data = data[(5+data_length):]
           else:
-            print("Response packet: {}".format(self.data2hexstr(data_packet)))
             break
-            
          
         elif data[:2] == RECV['ASYNC']:
-          data_length = (ord(data[3])<<8)+ord(data[4])
+          print("async packet {}".format(data))
+          data_length = (data[3]<<8)+data[4]
           if data_length+5 <= len(data):
             data_packet = data[:(5+data_length)]
             data = data[(5+data_length):]
           else:
             # the remainder of the packet isn't long enough
             break
-          if data_packet[2]==IDCODE['DATA_STRM'] and self._async_callback_dict.has_key(IDCODE['DATA_STRM']):
+          if data_packet[2]==IDCODE['DATA_STRM'] and IDCODE['DATA_STRM'] in self._async_callback_dict:
             self._async_callback_dict[IDCODE['DATA_STRM']](self.parse_data_strm(data_packet, data_length))
-          elif data_packet[2]==IDCODE['COLLISION'] and self._async_callback_dict.has_key(IDCODE['COLLISION']):
+          elif data_packet[2]==IDCODE['COLLISION'] and IDCODE['COLLISION'] in self._async_callback_dict:
             self._async_callback_dict[IDCODE['COLLISION']](self.parse_collision_detect(data_packet, data_length))
-          elif data_packet[2]==IDCODE['PWR_NOTIFY'] and self._async_callback_dict.has_key(IDCODE['PWR_NOTIFY']):
+          elif data_packet[2]==IDCODE['PWR_NOTIFY'] and IDCODE['PWR_NOTIFY'] in self._async_callback_dict:
             self._async_callback_dict[IDCODE['PWR_NOTIFY']](self.parse_pwr_notify(data_packet, data_length))
           else:
-            print("got a packet that isn't streaming: {}".format(self.data2hexstr(data)))
+            print("got a packet without callback: {}".format(data_packet))
         else:
-          raise RuntimeError("Bad SOF : {}".format(self.data2hexstr(data)))
+          print("Runtime Error - Bad SOF : {}\nReset data to empty list".format(data))
+          data = [] # clear data
       self.raw_data_buf=data
 
   def parse_pwr_notify(self, data, data_length):
@@ -854,7 +852,7 @@ class Sphero(threading.Thread):
       * 03h = Battery Low, 
       * 04h = Battery Critical
     '''
-    return struct.unpack_from('B', ''.join(data[5:]))[0]
+    return struct.unpack_from('B', bytes(bytearray((data[5:]))))[0]
 
   def parse_collision_detect(self, data, data_length):
     '''
@@ -888,14 +886,12 @@ class Sphero(threading.Thread):
 
   def parse_data_strm(self, data, data_length):
     output={}
-    for i in range((data_length-1)/2):
-      unpack = struct.unpack_from('>h', ''.join(data[5+2*i:]))
+    for i in range(int((data_length-1)/2)):
+      unpack = struct.unpack_from('>h', bytes(bytearray(data[5+2*i:])))
       output[self.mask_list[i]] = unpack[0]
-    #print self.mask_list
-    #print output
+    print(self.mask_list)
+    print(output)
     return output
-
-
 
   def disconnect(self):
     self.is_connected = False

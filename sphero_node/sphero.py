@@ -16,7 +16,7 @@ from sensor_msgs.msg import Imu
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Point, Pose, Quaternion, Twist, TwistWithCovariance, Vector3
 from sphero_msgs.msg import SpheroCollision
-from std_msgs.msg import ColorRGBA, Float32, Bool
+from std_msgs.msg import ColorRGBA, Float32, Bool, Header
 from diagnostic_msgs.msg import DiagnosticArray, DiagnosticStatus, KeyValue
 
 
@@ -27,20 +27,20 @@ class SpheroNode(Node):
                       4:"Battery Critical"}
 
 
-    ODOM_POSE_COVARIANCE = [1e-3, 0, 0, 0, 0, 0, 
-                            0, 1e-3, 0, 0, 0, 0,
-                            0, 0, 1e6, 0, 0, 0,
-                            0, 0, 0, 1e6, 0, 0,
-                            0, 0, 0, 0, 1e6, 0,
-                            0, 0, 0, 0, 0, 1e3]
+    ODOM_POSE_COVARIANCE = [1e-3, 0., 0., 0., 0., 0., 
+                            0., 1e-3, 0., 0., 0., 0.,
+                            0., 0., 1e6, 0., 0., 0.,
+                            0., 0., 0., 1e6, 0., 0.,
+                            0., 0., 0., 0., 1e6, 0.,
+                            0., 0., 0., 0., 0., 1e3]
 
 
-    ODOM_TWIST_COVARIANCE = [1e-3, 0, 0, 0, 0, 0, 
-                             0, 1e-3, 0, 0, 0, 0,
-                             0, 0, 1e6, 0, 0, 0,
-                             0, 0, 0, 1e6, 0, 0,
-                             0, 0, 0, 0, 1e6, 0,
-                             0, 0, 0, 0, 0, 1e3]
+    ODOM_TWIST_COVARIANCE = [1e-3, 0., 0., 0., 0., 0., 
+                             0., 1e-3, 0., 0., 0., 0.,
+                             0., 0., 1e6, 0., 0., 0.,
+                             0., 0., 0., 1e6, 0., 0.,
+                             0., 0., 0., 0., 1e6, 0.,
+                             0., 0., 0., 0., 0., 1e3]
 
     def __init__(self, default_update_rate=50.0):
         super().__init__('sphero')
@@ -175,13 +175,13 @@ class SpheroNode(Node):
     def parse_data_strm(self, data):
         if self.is_connected:
             now = datetime.now()
-            imu = Imu(header=std_msgs.Header(frame_id="imu_link"))
+            imu = Imu(header=Header(frame_id="imu_link"))
             imu.header.stamp.sec = now.second
             imu.header.stamp.nanosec = now.microsecond * 1000
-            imu.orientation.x = data["QUATERNION_Q0"]
-            imu.orientation.y = data["QUATERNION_Q1"]
-            imu.orientation.z = data["QUATERNION_Q2"]
-            imu.orientation.w = data["QUATERNION_Q3"]
+            imu.orientation.x = data["QUATERNION_Q0"] / 10000
+            imu.orientation.y = data["QUATERNION_Q1"] / 10000
+            imu.orientation.z = data["QUATERNION_Q2"] / 10000
+            imu.orientation.w = data["QUATERNION_Q3"] / 10000
             imu.linear_acceleration.x = data["ACCEL_X_FILTERED"]/4096.0*9.8
             imu.linear_acceleration.y = data["ACCEL_Y_FILTERED"]/4096.0*9.8
             imu.linear_acceleration.z = data["ACCEL_Z_FILTERED"]/4096.0*9.8
@@ -192,11 +192,11 @@ class SpheroNode(Node):
             self.imu = imu
             self.imu_pub.publish(self.imu)
 
-            odom = Odometry(header=std_msgs.Header(frame_id="odom"), child_frame_id='base_footprint')
+            odom = Odometry(header=Header(frame_id="odom"), child_frame_id='base_footprint')
             odom.header.stamp.sec = now.second
             odom.header.stamp.nanosec = now.microsecond * 1000
-            odom.pose.pose = Pose(Point(data["ODOM_X"]/100.0,data["ODOM_Y"]/100.0,0.0), Quaternion(0.0,0.0,0.0,1.0))
-            odom.twist.twist = Twist(Vector3(data["VELOCITY_X"]/1000.0, 0, 0), Vector3(0, 0, data["GYRO_Z_FILTERED"]*10.0*math.pi/180.0))
+            odom.pose.pose = Pose(position=Point(x=data["ODOM_X"]/100.0,y=data["ODOM_Y"]/100.0,z=0.0), orientation=Quaternion(x=0.0,y=0.0,z=0.0,w=1.0))
+            odom.twist.twist = Twist(linear=Vector3(x=data["VELOCITY_X"]/1000.0, y=0.0, z=0.0), angular=Vector3(x=0.0, y=0.0, z=data["GYRO_Z_FILTERED"]*10.0*math.pi/180.0))
             odom.pose.covariance =self.ODOM_POSE_COVARIANCE                
             odom.twist.covariance =self.ODOM_TWIST_COVARIANCE
             self.odom_pub.publish(odom)                      
