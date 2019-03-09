@@ -14,11 +14,12 @@ setup(
     ],
     scripts=['scripts/test.py'],
     install_requires=['setuptools', 'bluez'],
+    zip_safe=True,
     author='Allison Thackston',
     author_email='allison@lyonthackston.com',
     maintainer='Allison Thackston',
     maintainer_email='allison@lyonthackston.com',
-    keywords=['ROS'],
+    keywords=['ROS2'],
     classifiers=[
         'Intended Audience :: Developers',
         'License :: OSI Approved :: Apache Software License',
