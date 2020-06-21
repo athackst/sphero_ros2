@@ -256,7 +256,9 @@ class Sphero(threading.Thread):
     return req + [self.seq] + [len(cmd)+1] + cmd
 
   def data2hexstr(self, data):
-    return ' '.join([ '{:02x}'.format(ord(d)) for d in data])
+    # former: was in hex, now data is in ints
+    # return ' '.join([ '{:02x}'.format(ord(d)) for d in data])
+    return ' '.join([ '{:02x}'.format(d) for d in data])
 
   def create_mask_list(self, mask1, mask2):
     #save the mask
@@ -353,7 +355,7 @@ class Sphero(threading.Thread):
 
     :param response: request response back from Sphero.
     """
-    self.send(self.pack_cmd(REQ['CMD_GET_AUTO_RECONNECT'],[]), reponse)
+    self.send(self.pack_cmd(REQ['CMD_GET_AUTO_RECONNECT'],[]), response)
 
   def get_power_state(self, response):
     """
@@ -748,7 +750,7 @@ class Sphero(threading.Thread):
     else:
       output = REQ['WITHOUT_RESPONSE'] + data + [checksum]
     #pack the msg
-    msg = str(struct.pack('B',x) for x in output)
+    msg = ''.join(str(struct.pack('B',x) for x in output))
     #send the msg
     with self._communication_lock:
       self.bt.send(msg)
@@ -827,11 +829,11 @@ class Sphero(threading.Thread):
           else:
             # the remainder of the packet isn't long enough
             break
-          if data_packet[2]==IDCODE['DATA_STRM'] and self._async_callback_dict.has_key(IDCODE['DATA_STRM']):
+          if data_packet[2]==IDCODE['DATA_STRM'] and IDCODE['DATA_STRM'] in self._async_callback_dict:
             self._async_callback_dict[IDCODE['DATA_STRM']](self.parse_data_strm(data_packet, data_length))
-          elif data_packet[2]==IDCODE['COLLISION'] and self._async_callback_dict.has_key(IDCODE['COLLISION']):
+          elif data_packet[2]==IDCODE['COLLISION'] and IDCODE['COLLISION'] in self._async_callback_dict:
             self._async_callback_dict[IDCODE['COLLISION']](self.parse_collision_detect(data_packet, data_length))
-          elif data_packet[2]==IDCODE['PWR_NOTIFY'] and self._async_callback_dict.has_key(IDCODE['PWR_NOTIFY']):
+          elif data_packet[2]==IDCODE['PWR_NOTIFY'] and IDCODE['PWR_NOTIFY'] in self._async_callback_dict:
             self._async_callback_dict[IDCODE['PWR_NOTIFY']](self.parse_pwr_notify(data_packet, data_length))
           else:
             print("got a packet that isn't streaming: {}".format(self.data2hexstr(data)))
